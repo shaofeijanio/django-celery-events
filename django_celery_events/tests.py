@@ -1,11 +1,10 @@
 from unittest import mock
 
-from celery_events import registry
 from celery_events.events import Event, Task
 
 from django.test import TestCase
 from django_celery_events.backends import DjangoDBBackend
-from django_celery_events import models, utils
+from django_celery_events import models, utils, registry
 
 
 class DjangoDBBackendTestCase(TestCase):
