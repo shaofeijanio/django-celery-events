@@ -46,8 +46,9 @@ def get_backend_class():
         'EVENTS_BACKEND',
         None,
     )
+
     if not backend_class_path:
-        backend_class_path = 'django_celery_events.backends.DjangoDBBackend'
+        return None
 
     backend_class_path_tokens = backend_class_path.split('.')
     backend_module = importlib.import_module('.'.join(backend_class_path_tokens[:-1]))

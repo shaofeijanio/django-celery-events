@@ -345,6 +345,10 @@ class GetBackendClassTestCase(TestCase):
 
         self.assertEqual(BackendModule.TestBackend, utils.get_backend_class())
 
-    def test_no_settings(self):
-        self.mock_settings.EVENTS_BACKEND = None
+    def test_with_settings_db_backend_class(self):
+        self.mock_settings.EVENTS_BACKEND = 'django_celery_events.backends.DjangoDBBackend'
         self.assertEqual(DjangoDBBackend, utils.get_backend_class())
+
+    def test_with_no_settings(self):
+        self.mock_settings.EVENTS_BACKEND = None
+        self.assertIsNone(utils.get_backend_class())
