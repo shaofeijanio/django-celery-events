@@ -1,0 +1,7 @@
+venv/
+.idea/
+.eggs/
+build/
+dist/
+*.egg-info/
+*.sqlite3
