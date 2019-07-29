@@ -107,19 +107,19 @@ class DjangoDBBackend(BaseDjangoBackend):
         for task, backend_task in zip(tasks, backend_tasks):
             task.backend_obj = backend_task
 
-        backend_event = models.Event(pk=event.backend_obj.pk)
-        backend_tasks = [models.Task(pk=task.backend_obj.pk) for task in tasks]
-        backend_event.tasks.add(*backend_tasks)
+        event.backend_obj.tasks.add(*backend_tasks)
+        event.backend_obj.save()
 
     def remove_tasks(self, event, tasks):
         from django_celery_events import models
 
-        backend_event = models.Event(pk=event.backend_obj.pk)
         backend_tasks = [models.Task(pk=task.backend_obj.pk) for task in tasks]
-        backend_event.tasks.remove(*backend_tasks)
+        event.backend_obj.tasks.remove(*backend_tasks)
+        event.backend_obj.save()
 
-    def update_tasks(self, tasks):
+    def update_tasks(self, event, tasks):
         from django_celery_events import models
 
         backend_tasks = [models.Task(pk=task.backend_obj.pk, queue=task.queue) for task in tasks]
         bulk_update(backend_tasks, update_fields=['queue'])
+        event.backend_obj.save()

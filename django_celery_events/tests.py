@@ -131,6 +131,7 @@ class DjangoDBBackendTestCase(TestCase):
 
     def test_create_tasks(self):
         event_obj = models.Event.objects.create(app_name='app_1', event_name='event')
+        initial_event_updated_on = event_obj.updated_on
         current_task_obj = models.Task.objects.create(name='task_0')
         event_obj.tasks.add(current_task_obj)
 
@@ -145,6 +146,9 @@ class DjangoDBBackendTestCase(TestCase):
 
         event_objs = models.Event.objects.all()
         self.assertEqual(1, event_objs.count())
+        event_obj = event_objs[0]
+        self.assertEqual(event_obj, event.backend_obj)
+        self.assertLess(initial_event_updated_on, event_obj.updated_on)
         task_objs = event_objs.first().tasks.order_by('name')
         self.assertEqual(3, task_objs.count())
         for task_obj, task in zip(task_objs[1:], tasks):
@@ -154,6 +158,7 @@ class DjangoDBBackendTestCase(TestCase):
 
     def test_remove_tasks(self):
         event_obj = models.Event.objects.create(app_name='app_1', event_name='event')
+        initial_event_updated_on = event_obj.updated_on
         current_task_objs = [
             models.Task.objects.create(name='task_1'),
             models.Task.objects.create(name='task_2')
@@ -169,6 +174,9 @@ class DjangoDBBackendTestCase(TestCase):
 
         event_objs = models.Event.objects.all()
         self.assertEqual(1, event_objs.count())
+        event_obj = event_objs[0]
+        self.assertEqual(event_obj, event.backend_obj)
+        self.assertLess(initial_event_updated_on, event_obj.updated_on)
         task_objs = event_objs.first().tasks.order_by('name')
         self.assertEqual(1, task_objs.count())
         task_obj, task = task_objs.first(), Task('task_2')
@@ -176,20 +184,29 @@ class DjangoDBBackendTestCase(TestCase):
         self.assertEqual(task_obj.queue, task.queue)
 
     def test_update_tasks(self):
+        event_obj = models.Event.objects.create(app_name='app', event_name='event')
+        initial_event_updated_on = event_obj.updated_on
         current_task_objs = [
             models.Task.objects.create(name='task_1'),
             models.Task.objects.create(name='task_2')
         ]
 
         backend = DjangoDBBackend(registry)
+        event = Event('app', 'event')
+        event.backend_obj = event_obj
         tasks = [
             Task('task_1', queue='queue_1'),
             Task('task_2', queue='queue_2')
         ]
         for task_obj, task in zip(current_task_objs, tasks):
             task.backend_obj = task_obj
-        backend.update_tasks(tasks)
+        backend.update_tasks(event, tasks)
 
+        event_objs = models.Event.objects.all()
+        self.assertEqual(1, event_objs.count())
+        event_obj = event_objs[0]
+        self.assertEqual(event_obj, event.backend_obj)
+        self.assertLess(initial_event_updated_on, event_obj.updated_on)
         task_objs = models.Task.objects.all().order_by('name')
         self.assertEqual(2, task_objs.count())
         for task_obj, task in zip(task_objs, tasks):
