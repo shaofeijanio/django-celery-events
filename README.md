@@ -49,6 +49,16 @@ The path to the backend class for the events backend. If not set, no backend is 
 local events and tasks. Set to `"django_celery_events.backends.DjangoDBBackend"` to used the backend provided by
 `django-celery-events`.
 
+## Syncing of events
+If cross-application support is required (`EVENTS_BACKEND` is set), events need to be synced with the backend when
+events and tasks change. This operation is similar to migrations in django. If events are not synced, remote
+applications do not know about the local tasks added to their events and the current application also does not know
+about the remote tasks added to the local events. To sync events use the below django admin command.
+
+```shell script
+python manage.py syncevents
+```
+
 ## Routing of tasks
 
 By default, tasks registered to events are routed to queues using the routes specified in the `CELERY_TASK_ROUTES`
