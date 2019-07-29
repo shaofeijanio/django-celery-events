@@ -41,7 +41,7 @@ The follow variables can be set in `settings.py` to configure `celery-events` be
 **`EVENTS_BROADCAST_QUEUE`**:
 
 The queue for the broadcast task. Broadcast task is the task that trigger tasks registered for every event. Defaults to
-"events_broadcast" if not set.
+`"events_broadcast"` if not set.
 
 **`EVENTS_BACKEND`**:
 
