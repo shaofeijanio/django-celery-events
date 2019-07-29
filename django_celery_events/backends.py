@@ -96,6 +96,18 @@ class DjangoDBBackend(BaseDjangoBackend):
         else:
             return []
 
+    def should_update_event(self, event):
+        from django_celery_events import models
+
+        if event.backend_obj is None:
+            return True
+
+        try:
+            backend_event = models.Event.objects.get(app_name=event.app_name, event_name=event.event_name)
+            return backend_event.updated_on > event.backend_obj.updated_on
+        except models.Event.DoesNotExist:
+            return False
+
     def delete_events(self, events):
         from django_celery_events import models
 

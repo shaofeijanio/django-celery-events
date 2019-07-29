@@ -64,6 +64,33 @@ class DjangoDBBackendTestCase(TestCase):
         events = backend.fetch_events([])
         self.assertEqual(0, len(events))
 
+    def test_should_update_event(self):
+        event = registry.create_local_event('app', 'event')
+        event_obj = models.Event.objects.create(app_name='app', event_name='event')
+        event.backend_obj = event_obj
+
+        event_obj = models.Event.objects.get(app_name='app', event_name='event')
+        event_obj.save()
+
+        backend = DjangoDBBackend(registry)
+        self.assertEqual(True, backend.should_update_event(event))
+
+    def test_should_update_event_no_backend_obj(self):
+        event_obj = models.Event.objects.create(app_name='app', event_name='event')
+        event = registry.create_local_event('app', 'event')
+
+        backend = DjangoDBBackend(registry)
+        self.assertTrue(backend.should_update_event(event))
+
+    def test_should_update_event_event_not_in_backend(self):
+        event = registry.create_local_event('app', 'event')
+        event_obj = models.Event.objects.create(app_name='app', event_name='event')
+        event.backend_obj = event_obj
+        event_obj.delete()
+
+        backend = DjangoDBBackend(registry)
+        self.assertFalse(backend.should_update_event(event))
+
     def test_delete_events(self):
         event_obj = models.Event.objects.create(app_name='app_1', event_name='event')
         task_obj = models.Task.objects.create(name='task_1', queue='queue_1')
@@ -176,7 +203,7 @@ class DjangoDBBackendTestCase(TestCase):
             self.assertEqual(task_obj.name, task.name)
             self.assertEqual(task_obj.queue, task.queue)
 
-    def test_update_local_events(self):
+    def test_update_local_event(self):
         event = registry.create_local_event('django_celery_events', 'event')
         task = event.add_task_name('django_celery_events.task_1')
         event_obj = models.Event.objects.create(app_name='django_celery_events', event_name='event')
@@ -184,7 +211,7 @@ class DjangoDBBackendTestCase(TestCase):
         event_obj.tasks.add(remote_task_obj)
 
         backend = DjangoDBBackend(registry)
-        backend.update_local_events()
+        backend.update_local_event(event)
 
         self.assertEqual(1, len(registry.local_events))
         local_event = registry.local_events[0]
