@@ -36,33 +36,6 @@ class DjangoDBBackend(BaseDjangoBackend):
 
         return events
 
-    def _create_events(self, events):
-        from django_celery_events import models, utils
-
-        backend_events = utils.bulk_create_with_ids([
-            models.Event(app_name=event.app_name, event_name=event.event_name)
-            for event in events
-        ])
-        for event, backend_event in zip(events, backend_events):
-            event.backend_obj = backend_event
-
-    def _create_tasks(self, tasks):
-        from django_celery_events import models, utils
-
-        backend_tasks = utils.bulk_create_with_ids([
-            models.Task(name=task.name, queue=task.queue)
-            for task in tasks
-        ])
-        for task, backend_task in zip(tasks, backend_tasks):
-            task.backend_obj = backend_task
-
-    def _add_tasks_to_event(self, event, tasks):
-        from django_celery_events import models, utils
-
-        backend_event = models.Event(pk=event.backend_obj.pk)
-        backend_tasks = [models.Task(pk=task.backend_obj.pk) for task in tasks]
-        backend_event.tasks.add(*backend_tasks)
-
     def commit_changes(self, events_to_create=None, events_to_delete=None, events_to_update=None):
         with transaction.atomic():
             super().commit_changes(
@@ -115,15 +88,28 @@ class DjangoDBBackend(BaseDjangoBackend):
         models.Event.objects.filter(pk__in=backend_event_pks).delete()
 
     def create_events(self, events):
-        self._create_events(events)
-        tasks = [task for event in events for task in event.tasks]
-        self._create_tasks(tasks)
-        for event in events:
-            self._add_tasks_to_event(event, event.tasks)
+        from django_celery_events import models, utils
+
+        backend_events = utils.bulk_create_with_ids([
+            models.Event(app_name=event.app_name, event_name=event.event_name)
+            for event in events
+        ])
+        for event, backend_event in zip(events, backend_events):
+            event.backend_obj = backend_event
 
     def create_tasks(self, event, tasks):
-        self._create_tasks(tasks)
-        self._add_tasks_to_event(event, tasks)
+        from django_celery_events import models, utils
+
+        backend_tasks = utils.bulk_create_with_ids([
+            models.Task(name=task.name, queue=task.queue)
+            for task in tasks
+        ])
+        for task, backend_task in zip(tasks, backend_tasks):
+            task.backend_obj = backend_task
+
+        backend_event = models.Event(pk=event.backend_obj.pk)
+        backend_tasks = [models.Task(pk=task.backend_obj.pk) for task in tasks]
+        backend_event.tasks.add(*backend_tasks)
 
     def remove_tasks(self, event, tasks):
         from django_celery_events import models

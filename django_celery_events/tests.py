@@ -127,14 +127,7 @@ class DjangoDBBackendTestCase(TestCase):
             self.assertEqual(event_obj.event_name, event.event_name)
             self.assertEqual(event_obj, event.backend_obj)
             task_objs = event_obj.tasks.all().order_by('name')
-            self.assertEqual(2, task_objs.count())
-            for task_obj, task in zip(task_objs, tasks):
-                self.assertEqual(task_obj.name, task.name)
-                self.assertEqual(task_obj.queue, task.queue)
-                self.assertEqual(task_obj, task.backend_obj)
-
-        task_objs = models.Task.objects.order_by('name')
-        self.assertEqual(4, task_objs.count())
+            self.assertEqual(0, task_objs.count())
 
     def test_create_tasks(self):
         event_obj = models.Event.objects.create(app_name='app_1', event_name='event')
@@ -242,10 +235,7 @@ class DjangoDBBackendTestCase(TestCase):
         self.assertEqual(local_event_to_add.app_name, event_obj.app_name)
         self.assertEqual(local_event_to_add.event_name, event_obj.event_name)
         task_objs = event_obj.tasks.order_by('name')
-        self.assertEqual(1, task_objs.count())
-        task_obj = task_objs[0]
-        self.assertEqual(local_task_to_add_to_local_event_to_add.name, task_obj.name)
-        self.assertEqual(local_task_to_add_to_local_event_to_add.queue, task_obj.queue)
+        self.assertEqual(0, task_objs.count())
 
     def test_sync_remote_events(self):
         remote_event = registry.remote_event('another_app', 'event')
