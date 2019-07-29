@@ -7,6 +7,9 @@ class Task(models.Model):
     updated_on = models.DateTimeField(auto_now=True)
     created_on = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return self.name + ((' - ' + self.queue) if self.queue else '')
+
 
 class Event(models.Model):
     app_name = models.CharField(max_length=255)
@@ -14,3 +17,6 @@ class Event(models.Model):
     tasks = models.ManyToManyField(Task, blank=True)
     updated_on = models.DateTimeField(auto_now=True)
     created_on = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.app_name + ' - ' + self.event_name
