@@ -1,11 +1,60 @@
 from unittest import mock
 
+from celery import Task as CeleryTask
 from celery_events.events import Event, Task
 
 from django.test import TestCase
+
+from django_celery_events.apps import DjangoCeleryEventsConfig
 from django_celery_events.backends import DjangoDBBackend
 from django_celery_events import models, configs, registry, app
 from django_celery_events.management.commands import syncevents
+
+
+class AppConfigTestCase(TestCase):
+    class CTask(CeleryTask):
+        def __init__(self, name):
+            self.name = name
+
+    def setUp(self):
+        settings_patcher = mock.patch('django_celery_events.apps.settings')
+        import_module_patcher = mock.patch('django_celery_events.apps.importlib.import_module')
+        self.mock_settings = settings_patcher.start()
+        self.mock_import_module = import_module_patcher.start()
+        self.addCleanup(settings_patcher.stop)
+        self.addCleanup(import_module_patcher.stop)
+
+        class MockModule:
+            pass
+
+        self.mock_module = MockModule()
+        self.mock_settings.INSTALLED_APPS = ['app_1']
+        self.mock_import_module.return_value = self.mock_module
+
+    def tearDown(self):
+        registry.events = []
+
+    def test_ready(self):
+        event_1 = registry.create_local_event('app_1', 'event_1')
+        event_2 = registry.remote_event('app_2', 'event_2')
+        self.mock_module.EVENT_1 = event_1
+        self.mock_module.EVENT_2 = event_2
+        self.mock_module.get_event_c_tasks = lambda event: [self.CTask(event.event_name + '_task')]
+
+        DjangoCeleryEventsConfig.ready(None)
+        self.assertEqual([Task('event_1_task', use_routes=False)], event_1.tasks)
+        self.assertEqual([Task('event_2_task', use_routes=False)], event_2.tasks)
+
+    def test_ready_get_event_c_tasks_not_celery_task(self):
+        event = registry.create_local_event('app_1', 'event_1')
+        self.mock_module.EVENT = event
+        self.mock_module.get_event_c_tasks = lambda e: ['task']
+
+        try:
+            DjangoCeleryEventsConfig.ready(None)
+            self.fail()
+        except ValueError:
+            self.assertEqual(0, len(event.tasks))
 
 
 class DjangoDBBackendTestCase(TestCase):
