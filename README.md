@@ -29,9 +29,9 @@ LOCAL_EVENT = app.registry.create_local_event('my_app', 'local_event')
 REMOTE_EVENT = app.registry.remote_event('another_app', 'remote_event')
 
 # Add tasks to events
-LOCAL_EVENT.add_c_task(task_1)
-LOCAL_EVENT.add_c_task(task_2)
-REMOTE_EVENT.add_c_task(task_3)
+LOCAL_EVENT.add_local_c_task(task_1)
+LOCAL_EVENT.add_local_c_task(task_2)
+REMOTE_EVENT.add_local_c_task(task_3)
 ```
 
 ## Configurations
@@ -65,6 +65,6 @@ By default, tasks registered to events are routed to queues using the routes spe
 variable in `settings.py`. If a custom queue is required for a task, specify is when adding the task to event.
 
 ```python
-EVENT.add_c_task(task, queue='my_custom_queue')
+EVENT.add_local_c_task(task, queue='my_custom_queue')
 ```
 
