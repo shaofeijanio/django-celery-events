@@ -1,16 +1,29 @@
 import importlib
 
 from celery import Task
+from celery_events import App
 from celery_events.events import Event
 
 from django.apps import AppConfig
 from django.conf import settings
+
+from django_celery_events import configs
 
 
 class DjangoCeleryEventsConfig(AppConfig):
     name = 'django_celery_events'
 
     def ready(self):
+        # Create app
+        app = App(
+            backend_class=configs.get_backend_class(),
+            broadcast_queue=configs.get_broadcast_queue(),
+            routes=configs.get_routes()
+        )
+        dce = __import__('django_celery_events')
+        dce.app = app
+        dce.registry = app.registry
+
         app_module_list = []
         events = []
 
