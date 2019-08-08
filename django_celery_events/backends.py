@@ -23,11 +23,11 @@ class DjangoDBBackend(BaseDjangoBackend):
     def _convert_backend_events_to_events(self, backend_events):
         events = []
         for backend_event in backend_events:
-            event = Event(backend_event.app_name, backend_event.event_name)
+            event = Event.local_instance(backend_event.app_name, backend_event.event_name)
             event.backend_obj = backend_event
 
             for backend_task in backend_event.tasks.all():
-                task = Task(backend_task.name, queue=backend_task.queue)
+                task = Task.local_instance(backend_task.name, queue=backend_task.queue, use_routes=False)
                 task.backend_obj = backend_task
 
                 event.add_task(task)

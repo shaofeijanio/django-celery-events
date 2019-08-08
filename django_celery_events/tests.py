@@ -4,13 +4,20 @@ from celery_events.events import Event, Task
 
 from django.test import TestCase
 from django_celery_events.backends import DjangoDBBackend
-from django_celery_events import models, utils, registry
+from django_celery_events import models, configs, registry, app
 
 
 class DjangoDBBackendTestCase(TestCase):
 
     def tearDown(self):
         registry.events = []
+
+    def create_c_task(self, task_name):
+        class CTask:
+            def __init__(self, name):
+                self.name = name
+
+        return CTask(task_name)
 
     def test_fetch_events_for_namespaces(self):
         event_objs = [
@@ -44,8 +51,8 @@ class DjangoDBBackendTestCase(TestCase):
 
         backend = DjangoDBBackend(registry)
         events = backend.fetch_events([
-            Event('app_1', 'event'),
-            Event('app_2', 'event')
+            Event.local_instance('app_1', 'event', app=app),
+            Event.local_instance('app_2', 'event', app=app)
         ])
 
         self.assertEqual(1, len(events))
@@ -97,7 +104,7 @@ class DjangoDBBackendTestCase(TestCase):
         event_obj.tasks.add(task_obj)
 
         backend = DjangoDBBackend(registry)
-        event = Event('app_1', 'event')
+        event = Event.local_instance('app_1', 'event', app=app)
         event.backend_obj = event_obj
         backend.delete_events([event])
 
@@ -106,12 +113,12 @@ class DjangoDBBackendTestCase(TestCase):
 
     def test_create_events(self):
         events = [
-            Event('app_1', 'event'),
-            Event('app_2', 'event'),
+            Event.local_instance('app_1', 'event', app=app),
+            Event.local_instance('app_2', 'event', app=app),
         ]
         tasks = [
-            Task('task_1'),
-            Task('task_2')
+            Task.local_instance('task_1', app=app),
+            Task.local_instance('task_2', app=app)
         ]
         for event in events:
             for task in tasks:
@@ -136,11 +143,11 @@ class DjangoDBBackendTestCase(TestCase):
         event_obj.tasks.add(current_task_obj)
 
         backend = DjangoDBBackend(registry)
-        event = Event('app_1', 'event')
+        event = Event.local_instance('app_1', 'event', app=app)
         event.backend_obj = event_obj
         tasks = [
-            Task('task_1'),
-            Task('task_2', queue='queue_2')
+            Task.local_instance('task_1', app=app),
+            Task.local_instance('task_2', queue='queue_2', app=app)
         ]
         backend.create_tasks(event, tasks)
 
@@ -166,9 +173,9 @@ class DjangoDBBackendTestCase(TestCase):
         event_obj.tasks.set(current_task_objs)
 
         backend = DjangoDBBackend(registry)
-        event = Event('app_1', 'event')
+        event = Event.local_instance('app_1', 'event', app=app)
         event.backend_obj = event_obj
-        task = Task('task_1')
+        task = Task.local_instance('task_1', app=app)
         task.backend_obj = current_task_objs[0]
         backend.remove_tasks(event, [task])
 
@@ -179,7 +186,7 @@ class DjangoDBBackendTestCase(TestCase):
         self.assertLess(initial_event_updated_on, event_obj.updated_on)
         task_objs = event_objs.first().tasks.order_by('name')
         self.assertEqual(1, task_objs.count())
-        task_obj, task = task_objs.first(), Task('task_2')
+        task_obj, task = task_objs.first(), Task.local_instance('task_2', app=app)
         self.assertEqual(task_obj.name, task.name)
         self.assertEqual(task_obj.queue, task.queue)
 
@@ -192,7 +199,7 @@ class DjangoDBBackendTestCase(TestCase):
         ]
 
         backend = DjangoDBBackend(registry)
-        event = Event('app', 'event')
+        event = Event.local_instance('app', 'event', app=app)
         event.backend_obj = event_obj
         tasks = [
             Task('task_1', queue='queue_1'),
@@ -215,7 +222,8 @@ class DjangoDBBackendTestCase(TestCase):
 
     def test_update_local_event(self):
         event = registry.create_local_event('django_celery_events', 'event')
-        task = event.add_task_name('django_celery_events.task_1')
+        c_task = self.create_c_task('django_celery_events.task_1')
+        task = event.add_local_c_task(c_task)
         event_obj = models.Event.objects.create(app_name='django_celery_events', event_name='event')
         remote_task_obj = models.Task.objects.create(name='another_app.task_1', queue='q')
         event_obj.tasks.add(remote_task_obj)
@@ -239,7 +247,8 @@ class DjangoDBBackendTestCase(TestCase):
 
     def test_sync_local_events(self):
         local_event_to_add = registry.create_local_event('django_celery_events', 'event_1')
-        local_task_to_add_to_local_event_to_add = local_event_to_add.add_task_name('django_celery_events.task_1')
+        c_task = self.create_c_task('django_celery_events.task_1')
+        local_task_to_add_to_local_event_to_add = local_event_to_add.add_local_c_task(c_task)
 
         local_event_to_remove_obj = models.Event.objects.create(app_name='django_celery_events', event_name='event_2')
 
@@ -256,8 +265,10 @@ class DjangoDBBackendTestCase(TestCase):
 
     def test_sync_remote_events(self):
         remote_event = registry.remote_event('another_app', 'event')
-        local_task_to_add = remote_event.add_task_name('django_celery_events.task_1')
-        local_task_to_update = remote_event.add_task_name('django_celery_events.task_2', queue='new_queue')
+        c_task_to_add = self.create_c_task('django_celery_events.task_1')
+        c_task_to_update = self.create_c_task('django_celery_events.task_2')
+        local_task_to_add = remote_event.add_local_c_task(c_task_to_add)
+        local_task_to_update = remote_event.add_local_c_task(c_task_to_update, queue='new_queue')
 
         remote_event_obj = models.Event.objects.create(app_name='another_app', event_name='event')
         local_task_to_update_obj = models.Task.objects.create(name='django_celery_events.task_2', queue='old_queue')
@@ -282,18 +293,18 @@ class DjangoDBBackendTestCase(TestCase):
         self.assertEqual(local_task_to_update.queue, task_obj.queue)
 
 
-class GetTaskNameQueueTestCase(TestCase):
+class GetRoutesTestCase(TestCase):
 
     def setUp(self):
         # Mock
-        settings_patcher = mock.patch('django_celery_events.utils.settings')
+        settings_patcher = mock.patch('django_celery_events.configs.settings')
         self.mock_settings = settings_patcher.start()
         self.addCleanup(settings_patcher.stop)
-        import_module_patcher = mock.patch('django_celery_events.utils.importlib.import_module')
+        import_module_patcher = mock.patch('django_celery_events.configs.importlib.import_module')
         self.mock_import_module = import_module_patcher.start()
         self.addCleanup(import_module_patcher.stop)
 
-    def test_with_route_queue(self):
+    def test_with_route(self):
         def route(task, **kwargs):
             return {
                 'queue': 'queue_{0}'.format(task.name)
@@ -307,67 +318,39 @@ class GetTaskNameQueueTestCase(TestCase):
         self.mock_settings.CELERY_TASK_ROUTES = ['app.tasks.route']
         self.mock_import_module.side_effect = lambda name: RouteModule if name == 'app.tasks' else None
 
-        self.assertEqual('queue_task_1', utils.get_task_name_queue('task_1'))
+        self.assertEqual([route], configs.get_routes())
 
-    def test_with_route_no_queue(self):
-        def route(task, **kwargs):
-            return {'exchange': 'exchange'}
-
-        class RouteModule:
-            pass
-
-        RouteModule.route = route
-
-        self.mock_settings.CELERY_TASK_ROUTES = ['app.tasks.route']
-        self.mock_import_module.side_effect = lambda name: RouteModule if name == 'app.tasks' else None
-
-        self.assertIsNone(utils.get_task_name_queue('task_1'))
-
-    def test_with_route_return_none(self):
-        def route(task, **kwargs):
-            return None
-
-        class RouteModule:
-            pass
-
-        RouteModule.route = route
-
-        self.mock_settings.CELERY_TASK_ROUTES = ['app.tasks.route']
-        self.mock_import_module.side_effect = lambda name: RouteModule if name == 'app.tasks' else None
-
-        self.assertIsNone(utils.get_task_name_queue('task_1'))
-
-    def test_with_no_route(self):
+    def test_no_route(self):
         self.mock_settings.CELERY_TASK_ROUTES = None
-        self.assertIsNone(utils.get_task_name_queue('task_1'))
+        self.assertEqual([], configs.get_routes())
 
 
 class GetBroadcastQueueTestCase(TestCase):
 
     def setUp(self):
         # Mock
-        settings_patcher = mock.patch('django_celery_events.utils.settings')
+        settings_patcher = mock.patch('django_celery_events.configs.settings')
         self.mock_settings = settings_patcher.start()
         self.addCleanup(settings_patcher.stop)
 
     def test_with_settings(self):
         self.mock_settings.EVENTS_BROADCAST_QUEUE = 'queue'
-        self.assertEqual('queue', utils.get_broadcast_queue())
+        self.assertEqual('queue', configs.get_broadcast_queue())
 
     def test_with_settings_as_none(self):
         self.mock_settings.EVENTS_BROADCAST_QUEUE = None
-        self.assertEqual('events_broadcast', utils.get_broadcast_queue())
+        self.assertEqual('events_broadcast', configs.get_broadcast_queue())
 
 
 class GetBackendClassTestCase(TestCase):
 
     def setUp(self):
         # Mock
-        settings_patcher = mock.patch('django_celery_events.utils.settings')
+        settings_patcher = mock.patch('django_celery_events.configs.settings')
         self.mock_settings = settings_patcher.start()
         self.addCleanup(settings_patcher.stop)
 
-    @mock.patch('django_celery_events.utils.importlib.import_module')
+    @mock.patch('django_celery_events.configs.importlib.import_module')
     def test_with_settings(self, mock_import_module):
         self.mock_settings.EVENTS_BACKEND = 'app.backends.TestBackend'
 
@@ -377,12 +360,12 @@ class GetBackendClassTestCase(TestCase):
 
         mock_import_module.side_effect = lambda name: BackendModule if name == 'app.backends' else None
 
-        self.assertEqual(BackendModule.TestBackend, utils.get_backend_class())
+        self.assertEqual(BackendModule.TestBackend, configs.get_backend_class())
 
     def test_with_settings_db_backend_class(self):
         self.mock_settings.EVENTS_BACKEND = 'django_celery_events.backends.DjangoDBBackend'
-        self.assertEqual(DjangoDBBackend, utils.get_backend_class())
+        self.assertEqual(DjangoDBBackend, configs.get_backend_class())
 
     def test_with_no_settings(self):
         self.mock_settings.EVENTS_BACKEND = None
-        self.assertIsNone(utils.get_backend_class())
+        self.assertIsNone(configs.get_backend_class())

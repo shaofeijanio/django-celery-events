@@ -1,13 +1,13 @@
-from celery_events import create_app
+from celery_events import App
 
-from django_celery_events import utils
+from django_celery_events import configs
 
 default_app_config = 'django_celery_events.apps.DjangoCeleryEventsConfig'
 
-app = create_app(
-    backend_class=utils.get_backend_class(),
-    get_broadcast_queue=utils.get_broadcast_queue,
-    get_task_name_queue=utils.get_task_name_queue
+app = App(
+    backend_class=configs.get_backend_class(),
+    broadcast_queue=configs.get_broadcast_queue(),
+    routes=configs.get_routes()
 )
 
 registry = app.registry
