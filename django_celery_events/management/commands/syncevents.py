@@ -1,13 +1,13 @@
 from django.core.management import BaseCommand
 
-from django_celery_events import registry, utils
+from django_celery_events import registry, configs
 
 
 class Command(BaseCommand):
     help = 'Syncs events with backend.'
 
     def handle(self, *args, **options):
-        backend_class = utils.get_backend_class()
+        backend_class = configs.get_backend_class()
 
         if backend_class is None:
             self.stdout.write(self.style.NOTICE('Not backend class specified. Nothing is done.'))

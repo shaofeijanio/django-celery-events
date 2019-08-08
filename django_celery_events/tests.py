@@ -5,6 +5,7 @@ from celery_events.events import Event, Task
 from django.test import TestCase
 from django_celery_events.backends import DjangoDBBackend
 from django_celery_events import models, configs, registry, app
+from django_celery_events.management.commands import syncevents
 
 
 class DjangoDBBackendTestCase(TestCase):
@@ -369,3 +370,22 @@ class GetBackendClassTestCase(TestCase):
     def test_with_no_settings(self):
         self.mock_settings.EVENTS_BACKEND = None
         self.assertIsNone(configs.get_backend_class())
+
+
+class SynceventsTestCase(TestCase):
+
+    @mock.patch('django_celery_events.management.commands.syncevents.configs.get_backend_class')
+    def test_with_backend_class(self, mock_get_backend_class):
+        mock_backend_class = mock.Mock()
+        mock_backend = mock.Mock()
+        mock_get_backend_class.return_value = mock_backend_class
+        mock_backend_class.return_value = mock_backend
+
+        syncevents.Command().handle()
+        mock_backend.sync_local_events.assert_called_once()
+        mock_backend.sync_remote_events.assert_called_once()
+
+    @mock.patch('django_celery_events.management.commands.syncevents.configs.get_backend_class')
+    def test_no_backend_class(self, mock_get_backend_class):
+        mock_get_backend_class.return_value = None
+        syncevents.Command().handle()
