@@ -59,6 +59,10 @@ The follow variables can be set in `settings.py` to configure `celery-events` be
 The queue for the broadcast task. Broadcast task is the task that trigger tasks registered for every event. Defaults to
 `"events_broadcast"` if not set.
 
+**`EVENTS_BROADCAST_TASK_BASE`**:
+
+The base class for the broadcast celery task. Defaults to `None`.
+
 **`EVENTS_BACKEND`**:
 
 The path to the backend class for the events backend. If not set, no backend is used and application can only process
