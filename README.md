@@ -18,20 +18,36 @@ application.
 
 For example, for an Django application `my_app`, the following code should go into `my_app/events.py`.
 
+**Declaring events**
+
 ```python
 from django_celery_events import app
 
-from my_app.tasks import task_1, task_2, task_3
-
-
-# Declare events
 LOCAL_EVENT = app.registry.create_local_event('my_app', 'local_event')
-REMOTE_EVENT = app.registry.remote_event('another_app', 'remote_event')
+```
 
-# Add tasks to events
-LOCAL_EVENT.add_local_c_task(task_1)
-LOCAL_EVENT.add_local_c_task(task_2)
-REMOTE_EVENT.add_local_c_task(task_3)
+**Adding task to events**
+
+Adding of tasks can be done in the standard way by importing the events and calling `.add_local_c_task()` of the event.
+However, this will result in error if there is circular import in the project. The recommended way is to provide a
+`get_event_c_tasks()` method in `events.py` to return the celery tasks for each event.
+
+```python
+from my_app import tasks
+
+LOCAL_EVENT = app.registry.create_local_event('my_app', 'local_event')
+
+
+def get_event_c_tasks(event):
+    # Import is done inside method to prevent circular import
+    from another_app import events as another_app_events
+    
+    # Return tasks for each event
+    if event == LOCAL_EVENT:
+        return [tasks.task_1, tasks.task_2]
+
+    if event == another_app_events.LOCAL_EVENT:
+        return [tasks.task_3, tasks.task_4]
 ```
 
 ## Configurations
