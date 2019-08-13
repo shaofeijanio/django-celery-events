@@ -18,6 +18,7 @@ class DjangoCeleryEventsConfig(AppConfig):
         app = App(
             backend_class=configs.get_backend_class(),
             broadcast_queue=configs.get_broadcast_queue(),
+            broadcast_task_base=configs.get_broadcast_task_base(),
             routes=configs.get_routes()
         )
         dce = __import__('django_celery_events')

@@ -343,18 +343,16 @@ class DjangoDBBackendTestCase(TestCase):
         self.assertEqual(local_task_to_update.queue, task_obj.queue)
 
 
-class GetRoutesTestCase(TestCase):
+class ConfigsTestCase(TestCase):
 
     def setUp(self):
         # Mock
         settings_patcher = mock.patch('django_celery_events.configs.settings')
         self.mock_settings = settings_patcher.start()
         self.addCleanup(settings_patcher.stop)
-        import_module_patcher = mock.patch('django_celery_events.configs.importlib.import_module')
-        self.mock_import_module = import_module_patcher.start()
-        self.addCleanup(import_module_patcher.stop)
 
-    def test_with_route(self):
+    @mock.patch('django_celery_events.configs.importlib.import_module')
+    def test_get_routes_with_route(self, mock_import_module):
         def route(task, **kwargs):
             return {
                 'queue': 'queue_{0}'.format(task.name)
@@ -366,42 +364,40 @@ class GetRoutesTestCase(TestCase):
         RouteModule.route = route
 
         self.mock_settings.CELERY_TASK_ROUTES = ['app.tasks.route']
-        self.mock_import_module.side_effect = lambda name: RouteModule if name == 'app.tasks' else None
+        mock_import_module.side_effect = lambda name: RouteModule if name == 'app.tasks' else None
 
         self.assertEqual([route], configs.get_routes())
 
-    def test_no_route(self):
+    def test_get_routes_no_route(self):
         self.mock_settings.CELERY_TASK_ROUTES = None
         self.assertEqual([], configs.get_routes())
 
-
-class GetBroadcastQueueTestCase(TestCase):
-
-    def setUp(self):
-        # Mock
-        settings_patcher = mock.patch('django_celery_events.configs.settings')
-        self.mock_settings = settings_patcher.start()
-        self.addCleanup(settings_patcher.stop)
-
-    def test_with_settings(self):
+    def test_get_broadcast_queue_with_settings(self):
         self.mock_settings.EVENTS_BROADCAST_QUEUE = 'queue'
         self.assertEqual('queue', configs.get_broadcast_queue())
 
-    def test_with_settings_as_none(self):
+    def test_get_broadcast_queue_with_settings_as_none(self):
         self.mock_settings.EVENTS_BROADCAST_QUEUE = None
         self.assertEqual('events_broadcast', configs.get_broadcast_queue())
 
+    @mock.patch('django_celery_events.configs.importlib.import_module')
+    def test_get_broadcast_task_base_with_settings(self, mock_import_module):
+        self.mock_settings.EVENTS_BROADCAST_TASK_BASE = 'app.tasks.TaskBase'
 
-class GetBackendClassTestCase(TestCase):
+        class TaskModule:
+            class TaskBase:
+                pass
 
-    def setUp(self):
-        # Mock
-        settings_patcher = mock.patch('django_celery_events.configs.settings')
-        self.mock_settings = settings_patcher.start()
-        self.addCleanup(settings_patcher.stop)
+        mock_import_module.side_effect = lambda name: TaskModule if name == 'app.tasks' else None
+
+        self.assertEqual(TaskModule.TaskBase, configs.get_broadcast_task_base())
+
+    def test_get_broadcast_task_base_no_settings(self):
+        self.mock_settings.EVENTS_BROADCAST_TASK_BASE = None
+        self.assertIsNone(configs.get_broadcast_task_base())
 
     @mock.patch('django_celery_events.configs.importlib.import_module')
-    def test_with_settings(self, mock_import_module):
+    def test_get_backend_class_with_settings(self, mock_import_module):
         self.mock_settings.EVENTS_BACKEND = 'app.backends.TestBackend'
 
         class BackendModule:
@@ -412,11 +408,11 @@ class GetBackendClassTestCase(TestCase):
 
         self.assertEqual(BackendModule.TestBackend, configs.get_backend_class())
 
-    def test_with_settings_db_backend_class(self):
+    def test_get_backend_class_with_settings_db_backend_class(self):
         self.mock_settings.EVENTS_BACKEND = 'django_celery_events.backends.DjangoDBBackend'
         self.assertEqual(DjangoDBBackend, configs.get_backend_class())
 
-    def test_with_no_settings(self):
+    def test_get_backend_class_with_no_settings(self):
         self.mock_settings.EVENTS_BACKEND = None
         self.assertIsNone(configs.get_backend_class())
 
