@@ -46,7 +46,7 @@ class DjangoCeleryEventsConfig(AppConfig):
         for app, module in app_module_list:
             if hasattr(module, 'get_event_c_tasks'):
                 for event in events:
-                    c_tasks = module.get_event_c_tasks(event)
+                    c_tasks = module.get_event_c_tasks(event) or []
                     for c_task in c_tasks:
                         if not isinstance(c_task, Task):
                             raise ValueError('{0} is not a celery task.'.format(c_task))
